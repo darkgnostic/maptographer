@@ -208,6 +208,13 @@ bool BaseDocument<T>::Resize(const glm::ivec2& new_size_)
 //
 // Included: Document.cpp
 template class Document<DocumentGlyph>;	// 
+
+template<class T>
+void Document<T>::SetKey(const binary_vector& key)
+{
+	key_ = key;
+}
+
 template<class T>
 void Document<T>::RefreshBrushes(const BrushPalette* brushes) {
 
@@ -234,9 +241,16 @@ bool Document<T>::Load(const std::string & path)
 	if (file.is_open() == false)
 		return false;
 
+	if (file.get_stream_type() & STREAM_TYPE_ENCODED) {
+		if (key_.empty() == false) {
+			file.set_encode_table(key_);
+		}
+	}
+
 	if (file.get_stream_type() & STREAM_TYPE_COMPRESSED) {
 		file.read_compressed_data();
 	}
+
 
 	file(*this);
 	file.close();

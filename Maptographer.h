@@ -2,6 +2,7 @@
 #define MAPTOGRAPHER_H_
 // automatically generated single header file
 #include <glm/glm.hpp>
+#include <zlib/zlib.h>
 #include <mini-archiver/MiniArchiver.h>
 #include <functional>
 
@@ -733,6 +734,7 @@ class Document :
 	public BaseDocument<T>,
 	public DocumentPalette
 {	
+	binary_vector		key_;	// 
 public:	// 
 	Document() = default;
 	virtual ~Document() = default;
@@ -766,6 +768,7 @@ public:	//
 			ar(mini_archiver::make_nvp("Brushes", brush_));
 		}
 	}
+	void SetKey(const binary_vector& key); // 
 	void RefreshBrushes( const BrushPalette* brushes = nullptr);	// 
 	bool Load(const std::string& path);	// 
 	virtual void Clear() override;	// 
