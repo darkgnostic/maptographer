@@ -2,27 +2,51 @@
 #define MAPTOGRAPHER_H_
 // automatically generated single header file
 #include <glm/glm.hpp>
-#include <zlib/zlib.h>
+#include <zlib.h>
 #include <mini-archiver/MiniArchiver.h>
 #include <functional>
+#include <memory>
 
 
 //
-// Included: Options.h
+// Included: ../../Maptographer/src/Config.h
+#ifdef NEW_ONE
+#include "engine/type/Vector2D.h"
+#include "engine/type/Vector3D.h"
+#include "engine/type/Vector4D.h"
+
+using mpt_vec2i = nox::vec2di;
+using mpt_vec2f = nox::vec2df;
+using mpt_vec3f = nox::Vector3d<float>;
+using mpt_vec4f = nox::vec4df;
+using mpt_vec4i = nox::Vector4d<int>;
+using mpt_string = nostd::string;
+#else
+using mpt_vec2i = glm::ivec2;
+using mpt_vec2f = glm::vec2;
+using mpt_vec3f = glm::vec3;
+using mpt_vec4f = glm::vec4;
+using mpt_vec4i = glm::ivec4;
+using mpt_string = std::string;
+#endif
+
+//
+// Included: ../../Maptographer/src/ToolType.h
+
+//
+// Included: ../../Maptographer/src/Options.h
 struct Options {	// 
-	glm::ivec2 screen_size_;								// calculated
-	glm::ivec2 font_size_ = glm::ivec2(16);		// font size
-	glm::ivec2 canvas_size_ = glm::ivec2(40, 40);	// in glyph numbers
-	glm::ivec2 canvas_size() {
+	mpt_vec2i screen_size_;								// calculated
+	mpt_vec2i font_size_ = mpt_vec2i(16);		// font size
+	mpt_vec2i canvas_size_ = mpt_vec2i(40, 40);	// in glyph numbers
+	mpt_vec2i canvas_size_in_px() {
 		return canvas_size_ * font_size_;
 	}
 };	// 
 
 //
-// Included: DocumentOptionService.h
+// Included: ../../Maptographer/src/DocumentOptionService.h
 struct DocumentOptionService {
-	glm::ivec2 size_ = glm::ivec2(10);
-
 	// 3d
 	bool use_3d_ = false;
 	float z_distance_ = 16.0f;
@@ -30,7 +54,7 @@ struct DocumentOptionService {
 };
 
 //
-// Included: AppVector.h
+// Included: ../../Maptographer/src/AppVector.h
 // simple std::vector wrapper
 template<class T>
 class AppVector {
@@ -141,16 +165,16 @@ public:
 	{
 		ar(mini_archiver::make_nvp("data", data_));
 	}
-	auto begin() const { return data_.begin(); }
-	auto end() const { return data_.end(); }
+	auto begin()  { return data_.begin(); }
+	auto end()  { return data_.end(); }
 	std::vector<T>	data_;
 };
 
 //
-// Included: DocumentPalette.h
+// Included: ../../Maptographer/src/DocumentPalette.h
 class DocumentPalette {
 public:
-	AppVector<glm::vec4> palette_;								// fix palette
+	AppVector<mpt_vec4f> palette_;								// fix palette
 	template <class Archive>
 	void Serialize(Archive & ar, unsigned version)
 	{
@@ -159,13 +183,14 @@ public:
 };
 
 //
-// Included: DocumentGlyph.h
-using ColorPalette = AppVector<glm::vec4>;
+// Included: ../../Maptographer/src/DocumentGlyph.h
+using ColorPalette = AppVector<mpt_vec4f>;
 
 #define SAFE_CALL(a)	if(a)	a
 
 #define DEFAULT_GLYPH		-1
 #define DEFAULT_BRUSH		-1
+#define DEFAULT_COLOR		-1
 
 
 class DocumentGlyph {
@@ -177,12 +202,12 @@ public:
 
 	short front_palette_color_ = -1;
 	short back_palette_color_ = -1;
-	glm::vec4 color_ = glm::vec4(DEFAULT_GLYPH);
-	glm::vec4 background_color_ = glm::vec4(0);	// alpha is 1 or 0, and back glyph is solid in case alpha is 1
+	mpt_vec4f color_ = mpt_vec4f(DEFAULT_GLYPH);
+	mpt_vec4f background_color_ = mpt_vec4f(0);	// alpha is 1 or 0, and back glyph is solid in case alpha is 1
 	
 
-	void SetBrush(short brush, short glyph, const glm::vec4& fore_color = glm::vec4(0), const glm::vec4& back_color = glm::vec4(0));
-	void Set(short glyph, const glm::vec4& fore_color = glm::vec4(0), const glm::vec4& back_color = glm::vec4(0));
+	void SetBrush(short brush, short glyph, const mpt_vec4f& fore_color = mpt_vec4f(0), const mpt_vec4f& back_color = mpt_vec4f(0));
+	void Set(short glyph, const mpt_vec4f& fore_color = mpt_vec4f(0), const mpt_vec4f& back_color = mpt_vec4f(0));
 	void Set(short glyph, int fore_index = 0, int back_index = 0);
 
 	void Clear();
@@ -198,11 +223,18 @@ public:
 				mini_archiver::make_nvp("FrontPaletteIndex", front_palette_color_),
 				mini_archiver::make_nvp("BackPaletteIndex", back_palette_color_)
 			);
+
+			if( version >= 7 )
+				ar(color_, background_color_);
 		}
 	}
 
 	bool SameAs(DocumentGlyph* g) {
 		return (g && g->glyph_ == glyph_);// && g->background_color_ == background_color_ && g->color_ == color_);
+	}
+
+	bool BrushValid() const	{
+		return brush_ != DEFAULT_BRUSH;
 	}
 
 	bool BrushValid(unsigned brush_size) {
@@ -212,22 +244,30 @@ protected:
 };
 
 //
-// Included: Brush.h
+// Included: ../../Maptographer/src/Brush.h
+//
+//
+//#include <bitset>
+#include <array>
+
+#define MAX_BRUSH_ENTRIES_PER_SET		8192
 class Brush : public DocumentGlyph {
 public:
 	Brush() {
 	}
-	std::string title_ = "Brush";
+	mpt_string title_ = "Brush";
 
 	std::vector<short> directional_glyph_;
 
-	glm::vec4 fore_base_ = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);		// it will variate color by variations
-	glm::vec4 back_base_ = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);		// it will variate color by variations
+	mpt_vec4f fore_base_ = mpt_vec4f(0.5f, 0.5f, 0.5f, 1.0f);		// it will variate color by variations
+	mpt_vec4f back_base_ = mpt_vec4f(0.0f, 0.0f, 0.0f, 1.0f);		// it will variate color by variations
 
-	glm::vec4 fore_variations_ = glm::vec4(0);		// it will variate color by variations
-	glm::vec4 back_variations_ = glm::vec4(0);		// it will variate color by variations
+	mpt_vec4f fore_variations_ = mpt_vec4f(0);		// it will variate color by variations
+	mpt_vec4f back_variations_ = mpt_vec4f(0);		// it will variate color by variations
 	float	  animation_speed_ = 0.0f;			// it will animate if animation speed is > 0
-	float	  percent_ = 0.0f;				// chance that percent 
+	float	  percent_ = 0.0f;				// chance that percent
+
+	std::vector<unsigned char> flags_;
 
 	// no need to serialize
 	float last_check_ = 0.0f;
@@ -251,10 +291,30 @@ public:
 		); // seria
 
 		archive(mini_archiver::make_nvp("Connected", connected_));
+
+		if( version > 8 ) {
+			archive(mini_archiver::make_nvp("Flags", flags_));
+		}
 		// force update of the glyphs on load/save
 		recently_updated_ = true;
 
+		ForceRefresh();
+		RefreshSelf();
+
+		last_check_ = 0.0f;
+
 	}
+
+	void AddFlag()
+	{
+		flags_.emplace_back(0)	;
+	}
+
+	void RemoveFlag()
+	{
+		flags_.pop_back();
+	}
+
 	bool NeedRefresh() const {
 		return force_refresh_ || recently_updated_;
 	}
@@ -272,7 +332,7 @@ public:
 
 	bool Update(float time) {
 		if (animation_speed_ > 0.0f) {
-			
+
 			last_check_ += time;
 			if (last_check_ >= animation_speed_) {
 				last_check_ -= animation_speed_;
@@ -301,7 +361,8 @@ public:
 		if ((recently_updated_ || force_update) && glyph_) {
 			if (RandomPercent()) {
 
-				//glyph->glyph_ = glyph_;
+				// update glyph in case it is refreshed
+				glyph->glyph_ = glyph_;
 
 				glyph->color_.r = fore_base_.r + fore_variations_.r * (std::rand() / (float)RAND_MAX);
 				glyph->color_.g = fore_base_.g + fore_variations_.g * (std::rand() / (float)RAND_MAX);
@@ -357,15 +418,65 @@ public:
 
 
 //
-// Included: DocumentLayer.h
-using BrushPalette = AppVector<Brush>;
+// Included: ../../Maptographer/src/DocumentLayer.h
+const int kBrushFlagSize = 8;
+class BrushPalette  : public AppVector<Brush>
+{
+public:
+	mpt_string name_;
+
+	std::vector<mpt_string> flag_name_;
+	
+	template <class Archive>
+	void Serialize(Archive & ar, unsigned version)
+	{
+		AppVector<Brush>::Serialize(ar,version);
+		
+		if( version > 8 ) {
+			ar(mini_archiver::make_nvp("Name", name_));
+			ar(mini_archiver::make_nvp("FlagNames", flag_name_));
+			if( name_ .empty())
+				name_ = "Brush Palette";
+		}
+	}
+
+	void AddFlag()
+	{
+		for( int i = 0; i<kBrushFlagSize;i++ )
+			flag_name_.emplace_back("");
+		
+		Call(&Brush::AddFlag);
+	}
+
+	void RemoveFlag()
+	{
+		for( int i = 0; i<kBrushFlagSize;i++ )
+			flag_name_.pop_back();
+		
+		Call(&Brush::RemoveFlag);
+	}
+	
+	Brush* Find(const mpt_string& name )
+	{
+		for( auto i =0; i< Size(); i++) {
+			auto* brush = Get(i);
+			if( brush &&  brush->title_== name ) {
+				return brush;
+			}
+		}
+	
+		return nullptr;
+	}
+};
+using BrushSet		= AppVector<BrushPalette>;	// 
 
 template<class T>
 class DocumentLayer {
 protected:
 	std::shared_ptr<DocumentOptionService>	doc_options_;	
 public:	
-	std::string			title_ = "New Layer";
+	mpt_vec2i			size_ = mpt_vec2i(10);
+	mpt_string			title_ = "New Layer";
 	bool				visible_ = true;
 	bool				locked_ = false;
 	float				opacity_ = 1.0f;
@@ -395,30 +506,30 @@ public:
 		archive(mini_archiver::make_nvp("Data", data_));
 
 	}
+	void SetSize(const mpt_vec2i size) {
+		size_ = size;
+	}
 	void UpdateBrushes(const BrushPalette* brush);
 
 	
-	T* GetAt(const glm::ivec2& pt);
+	T* GetAt(const mpt_vec2i& pt);
 	T* GetAt(int x, int y);
 	T* GetAt(int n);
 
-	T* GetAt(const glm::ivec2& pt) const;
+	T* GetAt(const mpt_vec2i& pt) const;
 	T* GetAt(int x, int y) const;
 	T* GetAt(int n) const;
 
 	void ChangeArraySize( unsigned to_size ); 
-	void Resize(const glm::ivec2& new_size_);	// 
-	glm::ivec2 Size() const {
-		if (doc_options_ != nullptr)
-			return doc_options_->size_;
-
-		return glm::ivec2(1);
+	void Resize(const mpt_vec2i& new_size_);	// 
+	mpt_vec2i Size() const {
+		return size_;
 	}
 };
 
 
 //
-// Included: DocumentRegion.h
+// Included: ../../Maptographer/src/DocumentRegion.h
 template< typename  T>
 class VolatileObject;
 
@@ -444,13 +555,13 @@ public:
 		const std::type_info& ti = typeid(v);
 
 		if (ti == typeid(float))				type_ = Type_::CustomType_Float;
-		else if (ti == typeid(std::string))		type_ = Type_::CustomType_String;
+		else if (ti == typeid(mpt_string))		type_ = Type_::CustomType_String;
 		else if (ti == typeid(int))				type_ = Type_::CustomType_Int;
 		else if (ti == typeid(bool))			type_ = Type_::CustomType_Bool;
-		else if (ti == typeid(glm::vec2))		type_ = Type_::CustomType_Vec2;
-		else if (ti == typeid(glm::vec3))		type_ = Type_::CustomType_Vec3;
-		else if (ti == typeid(glm::vec4))		type_ = Type_::CustomType_Vec4;
-		else if (ti == typeid(glm::ivec2))		type_ = Type_::CustomType_Vec2_Int;
+		else if (ti == typeid(mpt_vec2f))		type_ = Type_::CustomType_Vec2;
+		else if (ti == typeid(mpt_vec3f))		type_ = Type_::CustomType_Vec3;
+		else if (ti == typeid(mpt_vec4f))		type_ = Type_::CustomType_Vec4;
+		else if (ti == typeid(mpt_vec2i))		type_ = Type_::CustomType_Vec2_Int;
 	}
 
 	template <class Archive>
@@ -463,31 +574,32 @@ public:
 		type_ = static_cast<Type_>(type);
 
 		if (ar.IsLoader() == false ) {
+		    /* TODO: M1
 			switch (type_) {
 			case Type_::CustomType_Def:	break;
-			case Type_::CustomType_String:		((VolatileObject<std::string>*)(this))->Serialize(ar, version);	 break;
-			case Type_::CustomType_Int:			((VolatileObject<int>*)(this))->Serialize(ar, version);	break;
-			case Type_::CustomType_Float:		((VolatileObject<float>*)(this))->Serialize(ar, version);	break;
-			case Type_::CustomType_Bool:		((VolatileObject<bool>*)(this))->Serialize(ar, version);	break;
-			case Type_::CustomType_Vec2:		((VolatileObject<glm::vec2>*)(this))->Serialize(ar, version);	break;
-			case Type_::CustomType_Vec3:		((VolatileObject<glm::vec3>*)(this))->Serialize(ar, version);	break;
-			case Type_::CustomType_Vec4:		((VolatileObject<glm::vec4>*)(this))->Serialize(ar, version);	break;
-			case Type_::CustomType_Vec2_Int:	((VolatileObject<glm::ivec2>*)(this))->Serialize(ar, version);	break;
-			}
+			case Type_::CustomType_String:		reinterpret_cast<VolatileObject<mpt_string>*>(this)->Serialize(ar, version);	 break;
+			case Type_::CustomType_Int:			reinterpret_cast<VolatileObject<int>*>(this)->Serialize(ar, version);	break;
+			case Type_::CustomType_Float:		reinterpret_cast<VolatileObject<float>*>(this)->Serialize(ar, version);	break;
+			case Type_::CustomType_Bool:		reinterpret_cast<VolatileObject<bool>*>(this)->Serialize(ar, version);	break;
+			case Type_::CustomType_Vec2:		reinterpret_cast<VolatileObject<mpt_vec2f>*>(this)->Serialize(ar, version);	break;
+			case Type_::CustomType_Vec3:		reinterpret_cast<VolatileObject<mpt_vec3f>*>(this)->Serialize(ar, version);	break;
+			case Type_::CustomType_Vec4:		reinterpret_cast<VolatileObject<mpt_vec4f>*>(this)->Serialize(ar, version);	break;
+			case Type_::CustomType_Vec2_Int:	reinterpret_cast<VolatileObject<mpt_vec2i>*>(this)->Serialize(ar, version);	break;
+			}*/
 		}
 		
 	}
-	std::string title_;
+	mpt_string title_;
 	Type_ type_ = Type_::CustomType_Def;
 };
 
 
 template< typename  T>
-class VolatileObject : public VolatileBaseObject
+class VolatileObject final : public VolatileBaseObject
 {
 public:
 	VolatileObject() = default;
-	VolatileObject(T&& v) : value_(v) { VolatileBaseObject::Process<T>(v); }
+	explicit VolatileObject(T&& v) : value_(v) { VolatileBaseObject::Process<T>(v); }
 
 	T GetValue() { return value_; }
 	T value_;
@@ -506,19 +618,19 @@ using CustomDataArray = std::vector< std::shared_ptr<VolatileBaseObject> >;
 class DocumentRegion {
 public:
 	DocumentRegion();
-	std::string		title_  = "";
+	mpt_string		title_  = "";
 	bool			visible_ = true;
-	glm::ivec4		dimension_ = glm::ivec4(0);
+	mpt_vec4i		dimension_ = mpt_vec4i(0);
 	CustomDataArray custom_data_;
 
 	void Init() {
-		dimension_ = glm::ivec4(0);
+		dimension_ = mpt_vec4i(0);
 		custom_data_.clear();
 		title_ = "";
 	}
 
 	bool IsDefined() {
-		return dimension_ != glm::ivec4(0);
+		return dimension_ != mpt_vec4i(0);
 	}
 
 
@@ -532,7 +644,7 @@ public:
 			ar(mini_archiver::make_nvp("Dimension", dimension_));
 		else if (version <= 4) {
 			// TODO: remove me
-			glm::vec4 dim; 
+			mpt_vec4f dim; 
 			ar(mini_archiver::make_nvp("Dimension", dim));
 			dimension_.x = (int)dim.x;
 			dimension_.y = (int)dim.y;
@@ -551,8 +663,8 @@ public:
 				switch (vbo.type_) {
 				case VolatileBaseObject::Type_::CustomType_Def:	break;
 				case VolatileBaseObject::Type_::CustomType_String:
-					AddNew<std::string>(vbo.title_, std::string(""));	
-					ar(mini_archiver::make_nvp("Value", ((VolatileObject<std::string>*)custom_data_.back().get())->value_));
+					AddNew<mpt_string>(vbo.title_, mpt_string(""));	
+					ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_string>*)custom_data_.back().get())->value_));
 					break;
 				case VolatileBaseObject::Type_::CustomType_Int:
 					AddNew<int>(vbo.title_, 0);	
@@ -567,27 +679,61 @@ public:
 					ar(mini_archiver::make_nvp("Value", ((VolatileObject<bool>*)custom_data_.back().get())->value_));
 					break;
 				case VolatileBaseObject::Type_::CustomType_Vec2:
-					AddNew<glm::vec2>(vbo.title_, glm::vec2(0));	
-					ar(mini_archiver::make_nvp("Value", ((VolatileObject<glm::vec2>*)custom_data_.back().get())->value_));
+					AddNew<mpt_vec2f>(vbo.title_, mpt_vec2f(0));	
+					ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_vec2f>*)custom_data_.back().get())->value_));
 					break;
 				case VolatileBaseObject::Type_::CustomType_Vec3:
-					AddNew<glm::vec3>(vbo.title_, glm::vec3(0));	
-					ar(mini_archiver::make_nvp("Value", ((VolatileObject<glm::vec3>*)custom_data_.back().get())->value_));
+					AddNew<mpt_vec3f>(vbo.title_, mpt_vec3f(0));	
+					ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_vec3f>*)custom_data_.back().get())->value_));
 					break;
 				case VolatileBaseObject::Type_::CustomType_Vec4:
-					AddNew<glm::vec4>(vbo.title_, glm::vec4(0));	
-					ar(mini_archiver::make_nvp("Value", ((VolatileObject<glm::vec4>*)custom_data_.back().get())->value_));
+					AddNew<mpt_vec4f>(vbo.title_, mpt_vec4f(0));	
+					ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_vec4f>*)custom_data_.back().get())->value_));
 					break;
 				case VolatileBaseObject::Type_::CustomType_Vec2_Int:
-					AddNew<glm::ivec2>(vbo.title_, glm::ivec2(0));
-					ar(mini_archiver::make_nvp("Value", ((VolatileObject<glm::ivec2>*)custom_data_.back().get())->value_));
+					AddNew<mpt_vec2i>(vbo.title_, mpt_vec2i(0));
+					ar(mini_archiver::make_nvp("Value", reinterpret_cast<VolatileObject<mpt_vec2i>*>(custom_data_.back().get())->value_));
 					break;
 				}
 			}
 		}
 		else {
 			// saver
-			ar(mini_archiver::make_nvp("CustomData", custom_data_));
+			//ar(mini_archiver::make_nvp("CustomData", custom_data_));
+            unsigned size = custom_data_.size();
+            ar(mini_archiver::make_nvp("Size", size));
+
+            for (unsigned int i = 0; i < size; i++) {
+                ar(mini_archiver::make_nvp("Vbo", custom_data_[i]));
+                auto* cd = custom_data_[i].get();
+                switch (custom_data_[i]->type_) {
+                    case VolatileBaseObject::Type_::CustomType_Def:	break;
+                    case VolatileBaseObject::Type_::CustomType_String:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_string>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Int:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<int>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Float:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<float>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Bool:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<bool>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Vec2:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_vec2f>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Vec3:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_vec3f>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Vec4:
+                        ar(mini_archiver::make_nvp("Value", ((VolatileObject<mpt_vec4f>*)cd)->value_));
+                        break;
+                    case VolatileBaseObject::Type_::CustomType_Vec2_Int:
+                        ar(mini_archiver::make_nvp("Value", reinterpret_cast<VolatileObject<mpt_vec2i>*>(cd)->value_));
+                        break;
+                }
+            }
 		}
 	}//*/
 
@@ -595,37 +741,39 @@ public:
 		custom_data_.clear();
 	}
 	template<typename T, typename... Args>
-	void AddNew(const std::string& var_name, Args&&... args)
+	void AddNew(const mpt_string& var_name, Args&&... args)
 	{
 		auto ptr = std::shared_ptr<VolatileBaseObject>(new VolatileObject<T>(std::forward<Args>(args)...));
 		ptr->title_ = var_name;
 		custom_data_.push_back( ptr);
 	}
 
-	VolatileBaseObject* AddByIndex(const std::string& var_name, int index) {
+	VolatileBaseObject* AddByIndex(const mpt_string& var_name, int index) {
 		switch (VolatileBaseObject::Type_(index)) {
 		case VolatileBaseObject::Type_::CustomType_Float:			AddNew<float>(var_name, 0.0f);	return custom_data_.back().get();
-		case VolatileBaseObject::Type_::CustomType_String:			AddNew<std::string>(var_name, "");	return custom_data_.back().get();
+		case VolatileBaseObject::Type_::CustomType_String:			AddNew<mpt_string>(var_name, "");	return custom_data_.back().get();
 		case VolatileBaseObject::Type_::CustomType_Int:				AddNew<int>(var_name, 0);	return custom_data_.back().get();
 		case VolatileBaseObject::Type_::CustomType_Bool:			AddNew<bool>(var_name, true);	return custom_data_.back().get();
-		case VolatileBaseObject::Type_::CustomType_Vec2:			AddNew<glm::vec2>(var_name, glm::vec2(0));	return custom_data_.back().get();
-		case VolatileBaseObject::Type_::CustomType_Vec3:			AddNew<glm::vec3>(var_name, glm::vec3(0));	return custom_data_.back().get();
-		case VolatileBaseObject::Type_::CustomType_Vec4:			AddNew<glm::vec4>(var_name, glm::vec4(0));	return custom_data_.back().get();
-		case VolatileBaseObject::Type_::CustomType_Vec2_Int:		AddNew<glm::ivec2>(var_name, glm::ivec2(0));	return custom_data_.back().get();
+		case VolatileBaseObject::Type_::CustomType_Vec2:			AddNew<mpt_vec2f>(var_name, mpt_vec2f(0));	return custom_data_.back().get();
+		case VolatileBaseObject::Type_::CustomType_Vec3:			AddNew<mpt_vec3f>(var_name, mpt_vec3f(0));	return custom_data_.back().get();
+		case VolatileBaseObject::Type_::CustomType_Vec4:			AddNew<mpt_vec4f>(var_name, mpt_vec4f(0));	return custom_data_.back().get();
+		case VolatileBaseObject::Type_::CustomType_Vec2_Int:		AddNew<mpt_vec2i>(var_name, mpt_vec2i(0));	return custom_data_.back().get();
+		default:
+			break;
 		}
 
 		return nullptr;
 	}
 
 	template<typename T>
-	VolatileObject<T>* GetVolatileObject(const std::string& object_name, unsigned* id = nullptr) const {
+	VolatileObject<T>* GetVolatileObject(const mpt_string& object_name, unsigned* id = nullptr) const {
 		for (unsigned i = 0; i < custom_data_.size(); i++) {
 			auto* cd = &custom_data_[i];
 
 			if (cd && (*cd)->title_ == object_name) {
 				if (id)
 					*id = i;
-				return ((VolatileObject<T>*)cd->get());
+				return static_cast<VolatileObject<T>*>(cd->get());
 			}
 		}
 
@@ -635,7 +783,7 @@ public:
 
 
 //
-// Included: BaseDocument.h
+// Included: ../../Maptographer/src/BaseDocument.h
 #define DEFAULT_DOC_TITLE		"untitled"
 
 template<class T>
@@ -644,9 +792,10 @@ protected:
 	bool				dirty_ = false;							// document changed?
 public:	// exposed member variables for ImGui
 	std::shared_ptr<DocumentOptionService>	doc_options_;		
-	std::string			title_			= DEFAULT_DOC_TITLE;	// document title
+	mpt_vec2i			size_ = mpt_vec2i(10);
+	mpt_string			title_			= DEFAULT_DOC_TITLE;	// document title
 	bool				opened_			= true;					// visible in tab
-	glm::ivec2			draw_offset_	= glm::ivec2(-1);		// document offset on canvas
+	mpt_vec2i			draw_offset_	= mpt_vec2i(-1);		// document offset on canvas
 
 																// layer is copied to document layers when appropriate
 	AppVector<DocumentLayer<T>>	layer_;							// layers
@@ -668,16 +817,7 @@ public:
 		}
 
 		ar(mini_archiver::make_nvp("Title", title_));
-
-		if( version >= 5 )
-			ar(mini_archiver::make_nvp("Size", doc_options_->size_));
-		else {
-			glm::vec2 size;
-			ar(mini_archiver::make_nvp("Size", size));
-			doc_options_->size_.x = (int)size.x;
-			doc_options_->size_.y = (int)size.y;
-		}
-
+		ar(mini_archiver::make_nvp("Size", size_));
 		ar(mini_archiver::make_nvp("Use3D", doc_options_->use_3d_));
 		ar(mini_archiver::make_nvp("ZDistance", doc_options_->z_distance_));
 		ar(mini_archiver::make_nvp("BaseLayer", doc_options_->base_layer_));
@@ -686,7 +826,7 @@ public:
 			ar(mini_archiver::make_nvp("DrawOffset", draw_offset_));
 		else
 		{
-			glm::vec2 size;
+			mpt_vec2f size;
 			ar(mini_archiver::make_nvp("DrawOffset", size));
 			draw_offset_.x = (int)size.x;
 			draw_offset_.y = (int)size.y;
@@ -703,12 +843,14 @@ public:
 
 		// on load (and as miseffect save) resize copy/dirty layer
 
-		layer_.Call(&DocumentLayer<T>::SetOptionsService, doc_options_);
 
-		Resize(doc_options_->size_);
+		layer_.Call(&DocumentLayer<T>::SetOptionsService, doc_options_);
+		layer_.Call(&DocumentLayer<T>::SetSize, size_);
+
+		Resize(size_);
 	}
 
-	DocumentRegion* GetRegion(const std::string& region_title, unsigned* id = nullptr) {
+	DocumentRegion* GetRegion(const mpt_string& region_title, unsigned* id = nullptr) {
 		for (unsigned i = 0; i < regions_.Size(); i++) {
 			if (auto* e = regions_.Get(i)) {
 				if (e->title_ == region_title) {
@@ -722,11 +864,14 @@ public:
 		return nullptr;
 	}
 	virtual void Clear();	// 
-	bool Resize(const glm::ivec2& new_size_);			// 
+	virtual bool IsDocument() {
+	    return true;
+	}
+	bool Resize(const mpt_vec2i& new_size_);			// 
 };	// 
 
 //
-// Included: Document.h
+// Included: ../../Maptographer/src/Document.h
 class DocumentElement;		// 
 
 template<class T>
@@ -735,15 +880,16 @@ class Document :
 	public DocumentPalette
 {	
 	binary_vector		key_;	// 
+	int					current_brush_palette_ = 0;	// 
 public:	// 
 	Document() = default;
 	virtual ~Document() = default;
 
-	bool				has_own_palette_ = true;
+	bool							has_own_palette_ = true;
 	AppVector<DocumentElement>		elements_;					// smart objects and smaller document stuff
-	AppVector<Brush>				brush_;
+	BrushSet						brush_;
 
-	virtual bool IsDocument() {
+	bool IsDocument() override {
 		return true;
 	}
 
@@ -751,7 +897,7 @@ public:	//
 	void Serialize(Archive & ar, unsigned version)
 	{
 		if (IsDocument()) {
-			if (version >= 2) {
+			if (version >= 2 && version < 10 ) {
 				bool compressed = false;
 				ar(mini_archiver::make_nvp("Compressed", compressed));
 			}
@@ -765,15 +911,25 @@ public:	//
 
 		if (IsDocument()) {
 			ar(mini_archiver::make_nvp("Elements", elements_));
-			ar(mini_archiver::make_nvp("Brushes", brush_));
+
+			if( version > 7 ) {
+				ar(mini_archiver::make_nvp("Brushes", brush_));
+			}
+			else {
+				brush_.Clear();
+				auto* palette = brush_.New();
+				ar(mini_archiver::make_nvp("Brushes", *palette));
+			}
 		}
 	}
 	void SetKey(const binary_vector& key); // 
 	void RefreshBrushes( const BrushPalette* brushes = nullptr);	// 
-	bool Load(const std::string& path);	// 
-	virtual void Clear() override;	// 
+	void RebuildBrushes();	// 
+	LoadState Load(const mpt_string& path);	// 
+	void Clear() override;	// 
+	BrushPalette* CurrentBrushPalette();	// 
 	// desc: gets element by name, retrieves eventual id
-	DocumentElement* GetElement(const std::string& element_title, unsigned* id = nullptr) {
+	DocumentElement* GetElement(const mpt_string& element_title, unsigned* id = nullptr) {
 		for (unsigned i = 0; i < elements_.Size(); i++) {
 			if (auto* e = elements_.Get(i)) {
 				if (e->title_ == element_title) {
